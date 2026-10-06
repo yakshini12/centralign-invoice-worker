@@ -4,6 +4,36 @@ A narrow, local prototype of a business-task worker. It accepts a natural-langua
 
 The AP system is simulated. It creates draft entries only; it never sends payments or connects to a real company system.
 
+## Screenshots
+
+These screenshots show one simulated invoice task from initial request through human review, completion, and the retained execution evidence. The workflow creates a draft payable only; it does not initiate payment.
+
+### Task submission
+
+Enter the requested business outcome in natural language. The worker then interprets the task and follows its plan using the available tools.
+
+![Invoice worker task entry form](docs/images/task-entry.png)
+
+### Human approval checkpoint
+
+Before writing a payable, the UI presents the selected invoice fields for review. The worker pauses here until the user approves or rejects the exact draft.
+
+![Approval checkpoint with company, invoice, amount, currency, and due date](docs/images/approval-review.png)
+
+The activity panel shows the current plan and the last observed tool while the task waits for approval.
+
+![Worker activity panel showing the current plan while awaiting approval](docs/images/approval-plan.png)
+
+### Verified completion and execution evidence
+
+After approval, the result card summarizes the draft payable and verification checks. It clearly states that payment was not initiated.
+
+![Completed invoice task with draft payable details and verification checks](docs/images/completed-result.png)
+
+The expandable execution details retain the underlying run JSON and event log for inspection.
+
+![Expanded execution details with run JSON and evidence event log](docs/images/execution-details.png)
+
 ## Architecture
 
 ```mermaid
@@ -26,10 +56,10 @@ The model proposes the next allowed action after each observation. Python enforc
 ## Requirements
 
 - Python 3.10 or newer.
-- Ollama with a model available locally, or another endpoint that supports OpenAI-compatible `/v1/chat/completions` and JSON mode.
+- An endpoint that supports OpenAI-compatible `/v1/chat/completions` requests and JSON mode. The recommended live-demo configuration is Google Gemini; Ollama is also supported as a local alternative.
 - PowerShell examples below assume the repository root is the directory containing `app.py` and `requirements.txt`.
 
-Ollama documents its local OpenAI-compatible chat-completions endpoint and JSON mode. Its usual local base URL is `http://localhost:11434/v1`. See [Ollama OpenAI compatibility](https://docs.ollama.com/api/openai-compatibility).
+The submitted workflow was validated with Google Gemini 3.5 Flash Lite through Google's OpenAI-compatible API endpoint. The FastAPI application uses a provider-agnostic LLM adapter and sends JSON-mode chat-completions requests; it does not use Gemini native function calling. Ollama documents its local OpenAI-compatible chat-completions endpoint and JSON mode. See [Ollama OpenAI compatibility](https://docs.ollama.com/api/openai-compatibility).
 
 ## Environment variables
 
@@ -37,15 +67,15 @@ The application reads environment variables from the process that starts it. It 
 
 | Variable | Required? | Default | Purpose |
 |---|---|---|---|
-| `LLM_BASE_URL` | No, if using the default | `http://localhost:11434/v1` | API root for the compatible endpoint. Use the `/v1` base URL, or provide a complete `/chat/completions` URL. |
-| `LLM_MODEL` | No, if using the default | `qwen2.5:7b` | Model identifier understood by the endpoint. |
-| `LLM_API_KEY` | Only if the endpoint requires one | Empty | Sent as a Bearer token when non-empty. Do not commit a real key. |
+| `LLM_BASE_URL` | No, if using the defaults | `http://localhost:11434/v1` | Base URL for an OpenAI-compatible endpoint. Use the `/v1` base URL, or provide a complete `/chat/completions` URL. |
+| `LLM_MODEL` | No, if using the defaults | `qwen2.5:7b` | Model identifier understood by the selected endpoint. |
+| `LLM_API_KEY` | Only if the endpoint requires one | Empty | Bearer token for the selected endpoint; leave empty for a local endpoint that does not require authentication. Do not commit a real key. |
 | `INVOICE_WORKER_DB` | No | `runtime/app.sqlite3` in the repository | SQLite file for simulator data, task state, and events. |
 | `SIMULATE_COMMIT_TIMEOUT` | No | `true` | When true, the first draft write in each run commits and then reports an ambiguous timeout for recovery. |
 
-There are no mandatory LLM environment variables because the first three have defaults. Set `LLM_BASE_URL` and `LLM_MODEL` when using a different endpoint or model; set `LLM_API_KEY` only when that endpoint requires authentication.
+The first three variables configure any supported OpenAI-compatible endpoint: `LLM_BASE_URL` selects the endpoint, `LLM_MODEL` selects its model, and `LLM_API_KEY` supplies a Bearer token when required. They have defaults for the local Ollama setup, so no LLM variables are mandatory when using those defaults. Set the variables for Gemini or another compatible service as shown below.
 
-## Setup and start (Windows PowerShell)
+## Setup (Windows PowerShell)
 
 From the repository root:
 
@@ -53,10 +83,40 @@ From the repository root:
 python -m venv .venv
 .\.venv\Scripts\Activate.ps1
 python -m pip install -r requirements.txt
+```
 
-# Install/pull the model once, in another terminal if Ollama is not already running:
+Choose one of the endpoint configurations below, then open [http://127.0.0.1:8000](http://127.0.0.1:8000) after Uvicorn starts.
+
+### Live Demo with Google Gemini
+
+The submitted workflow was validated using Google Gemini 3.5 Flash Lite through Google's OpenAI-compatible API endpoint. The application sends JSON-mode chat completions to that endpoint through its provider-agnostic LLM adapter.
+
+Set the following variables in PowerShell from the repository root. Replace `<YOUR_GEMINI_API_KEY>` with your own Gemini API key before running the app. Only the placeholder is shown here; the repository does not include your private key. Enter your key locally and never commit or share it.
+
+```powershell
+$env:LLM_BASE_URL = "https://generativelanguage.googleapis.com/v1beta/openai"
+$env:LLM_MODEL = "gemini-3.5-flash-lite"
+$env:LLM_API_KEY = "<YOUR_GEMINI_API_KEY>"
+$env:SIMULATE_COMMIT_TIMEOUT = "true"
+$env:INVOICE_WORKER_DB = (Join-Path (Get-Location) "runtime\gemini-demo.sqlite3")
+Remove-Item $env:INVOICE_WORKER_DB -ErrorAction SilentlyContinue
+
+uvicorn app:app --reload
+```
+
+The Gemini endpoint and model must be available to your API key and support the JSON-mode chat-completions request used by the adapter.
+
+### Alternative: Run with Ollama
+
+Ollama is a local alternative for users who prefer to run a model on their own machine. It was not the model used for the submitted live validation. Start Ollama and pull the model once:
+
+```powershell
 ollama pull qwen2.5:7b
+```
 
+Then configure and run the app from the repository root:
+
+```powershell
 $env:LLM_BASE_URL = "http://localhost:11434/v1"
 $env:LLM_MODEL = "qwen2.5:7b"
 $env:LLM_API_KEY = ""
@@ -66,7 +126,7 @@ $env:INVOICE_WORKER_DB = (Join-Path (Get-Location) "runtime\app.sqlite3")
 uvicorn app:app --reload
 ```
 
-Keep the local model endpoint running. Then open [http://127.0.0.1:8000](http://127.0.0.1:8000). For a different OpenAI-compatible service, change `LLM_BASE_URL` and `LLM_MODEL`; set `LLM_API_KEY` in the same shell if it requires a key. No application architecture change is needed as long as the endpoint accepts the request's JSON mode and returns the usual chat-completions response shape.
+Keep the Ollama endpoint running while using this option. Other OpenAI-compatible services can be configured by setting `LLM_BASE_URL`, `LLM_MODEL`, and `LLM_API_KEY` for that service; no application architecture change is needed when it accepts the request's JSON mode and returns the usual chat-completions response shape.
 
 ## Reset the simulated company database
 
@@ -82,15 +142,17 @@ The application creates the parent directory and seeds the invoice fixtures on s
 
 ## Live demo steps
 
-1. Start the configured local or hosted compatible model endpoint and confirm the selected model is available.
-2. Set the environment variables, select a fresh database path as above, and start Uvicorn.
-3. Open the local page and submit:
+Live validation: The submitted workflow was validated using Google Gemini 3.5 Flash Lite through Google's OpenAI-compatible API endpoint.
+
+For the recommended demo, follow **Live Demo with Google Gemini** above, replace the API-key placeholder with your own key, use the fresh database path, and start Uvicorn. Confirm the endpoint and model are available before recording.
+
+1. Start Uvicorn using the Gemini configuration above, then open the local page and submit:
 
    > Find the latest invoice from Company X. Extract its invoice number, amount, currency, and due date. Enter it as a draft payable. Do not pay it, and tell me once it is verified.
 
-4. Show the task understanding, initial plan, invoice search results, selected latest invoice, and extracted invoice fields.
-5. Review the proposed draft at the approval checkpoint and approve it. No payable is written before approval.
-6. Show the write timeout observation, the agent's next lookup action, the verifier result, and the final summary with run events/evidence.
+2. Show the task understanding, initial plan, invoice search results, selected latest invoice, and extracted invoice fields.
+3. Review the proposed draft at the approval checkpoint and approve it. No payable is written before approval.
+4. Show the write timeout observation, the agent's next lookup action, the verifier result, and the final summary with run events/evidence.
 
 ## Injected timeout and recovery
 
