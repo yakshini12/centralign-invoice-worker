@@ -1,0 +1,21 @@
+# Local secrets and environment files. Keep the safe template tracked.
+.env
+.env.*
+!.env.example
+
+# Python environments, bytecode, and test/tool caches.
+.venv/
+venv/
+env/
+__pycache__/
+**/__pycache__/
+*.py[cod]
+.pytest_cache/
+.mypy_cache/
+.ruff_cache/
+
+# Local simulator state and SQLite databases.
+runtime/
+*.sqlite
+*.sqlite3
+*.db
