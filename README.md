@@ -4,6 +4,37 @@ A narrow, local prototype of a business-task worker. It accepts a natural-langua
 
 The AP system is simulated. It creates draft entries only; it never sends payments or connects to a real company system.
 
+## Demo video
+
+Watch the [4:05.97 edited demo draft](docs/demo-video.mp4) to see the invoice task worker complete a simulated task, pause for human approval, recover from an ambiguous timeout, verify the draft payable, and walk through the README and repository.
+
+## Project structure
+
+```text
+centralign-invoice-worker/
+├── .env.example            # Safe environment-variable reference
+├── .gitignore               # Excludes secrets, runtime data, and local caches
+├── README.md                # Setup, workflow, and demo documentation
+├── agent.py                 # Task understanding, planning, tool loop, and state transitions
+├── app.py                   # FastAPI application and web UI
+├── llm.py                   # Provider-agnostic OpenAI-compatible chat adapter
+├── requirements.txt         # Python dependencies
+├── simulator.py             # Synthetic invoices and simulated AP tools
+├── store.py                 # SQLite-backed run state and event persistence
+├── docs/
+│   ├── demo-video.mp4       # Edited 4:05.97 project walkthrough
+│   └── images/              # README screenshots of the workflow
+│       ├── approval-plan.png
+│       ├── approval-review.png
+│       ├── completed-result.png
+│       ├── execution-details.png
+│       └── task-entry.png
+├── tests/
+│   └── test_workflow.py    # End-to-end workflow and recovery tests
+```
+
+The local `runtime/` directory is created as needed for SQLite data and is ignored by Git.
+
 ## Screenshots
 
 These screenshots show one simulated invoice task from initial request through human review, completion, and the retained execution evidence. The workflow creates a draft payable only; it does not initiate payment.
